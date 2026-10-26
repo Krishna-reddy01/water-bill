@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1,
+    "customerName": "krishna",
+    "meterNo": "112",
+    "previousReading": 123,
+    "currentReading": 178,
+    "units": 55,
+    "amount": 325,
+    "billDate": "2026-10-26",
+    "status": "Paid"
+  }
+]

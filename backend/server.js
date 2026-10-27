@@ -10,35 +10,54 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
-// ---------- JSON file helpers ----------
 const readBills = () => {
   try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); }
   catch { return []; }
 };
 const writeBills = (data) => fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+const round2 = (n) => Math.round(n * 100) / 100;
 
-// ---------- Billing logic (slab rates) ----------
-const FIXED_CHARGE = 50;
-function calculate(prev, curr) {
-  const units = curr - prev;
-  let amount = FIXED_CHARGE;
-  if (units <= 100) amount += units * 5;
-  else if (units <= 200) amount += 100 * 5 + (units - 100) * 8;
-  else amount += 100 * 5 + 100 * 8 + (units - 200) * 12;
-  return { units, amount };
+// ---------- Water tariff (usage measured in kilolitres, 1 KL = 1000 litres) ----------
+const TARIFF = {
+  Domestic:   { service: 30,  slabs: [{ upto: 10, rate: 7 }, { upto: 20, rate: 11 }, { upto: Infinity, rate: 15 }] },
+  Commercial: { service: 100, slabs: [{ upto: 10, rate: 25 }, { upto: Infinity, rate: 35 }] }
+};
+const SEWERAGE_PERCENT = 0.20; // 20% of water charge
+
+function calculate(prev, curr, type) {
+  const usageKL = round2(curr - prev);
+  const t = TARIFF[type];
+  let remaining = usageKL, lower = 0, water = 0;
+  for (const s of t.slabs) {
+    const inSlab = Math.min(remaining, s.upto - lower);
+    if (inSlab <= 0) break;
+    water += inSlab * s.rate;
+    remaining -= inSlab;
+    lower = s.upto;
+  }
+  const waterCharge = round2(water);
+  const sewerageCharge = round2(waterCharge * SEWERAGE_PERCENT);
+  const serviceCharge = t.service;
+  return {
+    usageKL, waterCharge, sewerageCharge, serviceCharge,
+    amount: round2(waterCharge + sewerageCharge + serviceCharge)
+  };
 }
 
 function validate(b) {
   if (!b.customerName || !String(b.customerName).trim()) return 'Customer name is required';
   if (!b.meterNo || !String(b.meterNo).trim()) return 'Meter number is required';
+  if (!TARIFF[b.connectionType]) return 'Connection type must be Domestic or Commercial';
+  if (!b.billingMonth) return 'Billing month is required';
   const prev = Number(b.previousReading), curr = Number(b.currentReading);
   if (isNaN(prev) || isNaN(curr) || prev < 0 || curr < 0) return 'Readings must be valid positive numbers';
   if (curr < prev) return 'Current reading cannot be less than previous reading';
   return null;
 }
 
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+
 // ---------- Routes ----------
-// Get all bills (optional ?q= search by name or meter number)
 app.get('/api/bills', (req, res) => {
   let bills = readBills();
   const q = (req.query.q || '').toString().toLowerCase();
@@ -58,14 +77,18 @@ app.post('/api/bills', (req, res) => {
   if (err) return res.status(400).json({ message: err });
   const bills = readBills();
   const prev = Number(req.body.previousReading), curr = Number(req.body.currentReading);
+  const today = new Date().toISOString().slice(0, 10);
   const bill = {
     id: bills.length ? Math.max(...bills.map(b => b.id)) + 1 : 1,
     customerName: req.body.customerName.trim(),
     meterNo: req.body.meterNo.trim(),
+    connectionType: req.body.connectionType,
+    billingMonth: req.body.billingMonth,
     previousReading: prev,
     currentReading: curr,
-    ...calculate(prev, curr),
-    billDate: new Date().toISOString().slice(0, 10),
+    ...calculate(prev, curr, req.body.connectionType),
+    billDate: today,
+    dueDate: addDays(today, 15),
     status: 'Unpaid'
   };
   bills.push(bill);
@@ -84,9 +107,11 @@ app.put('/api/bills/:id', (req, res) => {
     ...bills[i],
     customerName: req.body.customerName.trim(),
     meterNo: req.body.meterNo.trim(),
+    connectionType: req.body.connectionType,
+    billingMonth: req.body.billingMonth,
     previousReading: prev,
     currentReading: curr,
-    ...calculate(prev, curr)
+    ...calculate(prev, curr, req.body.connectionType)
   };
   writeBills(bills);
   res.json(bills[i]);

@@ -9,19 +9,32 @@ import { BillService } from './bill.service';
   imports: [FormsModule],
   template: `
     <div class="card">
-      <h3>{{ model.id ? 'Edit Bill #' + model.id : 'Generate New Bill' }}</h3>
+      <h3>{{ model.id ? 'Edit Bill #' + model.id : 'Generate New Water Bill' }}</h3>
       <form (ngSubmit)="save()">
-        <input name="customerName" [(ngModel)]="model.customerName" placeholder="Customer name" required>
-        <input name="meterNo" [(ngModel)]="model.meterNo" placeholder="Meter no." required>
-        <input name="previousReading" type="number" [(ngModel)]="model.previousReading" placeholder="Previous reading" required>
-        <input name="currentReading" type="number" [(ngModel)]="model.currentReading" placeholder="Current reading" required>
+        <label>Customer name<br>
+          <input name="customerName" [(ngModel)]="model.customerName" required></label>
+        <label>Water meter no.<br>
+          <input name="meterNo" [(ngModel)]="model.meterNo" required></label>
+        <label>Connection type<br>
+          <select name="connectionType" [(ngModel)]="model.connectionType">
+            <option>Domestic</option>
+            <option>Commercial</option>
+          </select></label>
+        <label>Billing month<br>
+          <input name="billingMonth" type="month" [(ngModel)]="model.billingMonth" required></label>
+        <br>
+        <label>Previous reading (KL)<br>
+          <input name="previousReading" type="number" min="0" step="0.01" [(ngModel)]="model.previousReading" required></label>
+        <label>Current reading (KL)<br>
+          <input name="currentReading" type="number" min="0" step="0.01" [(ngModel)]="model.currentReading" required></label>
         <br>
         <button type="submit">{{ model.id ? 'Update' : 'Generate Bill' }}</button>
         @if (model.id) { <button type="button" class="grey" (click)="cancel()">Cancel</button> }
         @if (error) { <p class="error">{{ error }}</p> }
       </form>
     </div>
-  `
+  `,
+  styles: [`label { font-size: 13px; margin-right: 8px; } select { padding: 8px; margin: 4px 8px 8px 0; border: 1px solid #bbb; border-radius: 4px; }`]
 })
 export class BillFormComponent implements OnChanges {
   @Input() bill: Bill | null = null;
@@ -34,7 +47,11 @@ export class BillFormComponent implements OnChanges {
   constructor(private api: BillService) {}
 
   private empty(): Bill {
-    return { customerName: '', meterNo: '', previousReading: 0, currentReading: 0 };
+    return {
+      customerName: '', meterNo: '', connectionType: 'Domestic',
+      billingMonth: new Date().toISOString().slice(0, 7),
+      previousReading: 0, currentReading: 0
+    };
   }
 
   ngOnChanges() {

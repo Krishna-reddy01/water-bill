@@ -1,13 +1,19 @@
 [
   {
-    "id": 1,
-    "customerName": "krishna",
-    "meterNo": "112",
-    "previousReading": 123,
-    "currentReading": 178,
-    "units": 55,
-    "amount": 325,
+    "id": 2,
+    "customerName": "sai",
+    "meterNo": "124",
+    "previousReading": 6,
+    "currentReading": 7,
+    "units": 1,
+    "amount": 38.4,
     "billDate": "2026-10-26",
-    "status": "Paid"
+    "status": "Unpaid",
+    "connectionType": "Domestic",
+    "billingMonth": "2026-09",
+    "usageKL": 1,
+    "waterCharge": 7,
+    "sewerageCharge": 1.4,
+    "serviceCharge": 30
   }
 ]
